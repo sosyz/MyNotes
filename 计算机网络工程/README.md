@@ -141,14 +141,18 @@ C -->|line console 0| F(终端线路模式)
 
 ### 特权模式  <font color=gray size=5>Switch#</font>
 
-| 命令                | 说明                                               |
-| ------------------- | -------------------------------------------------- |
-| configure terminal  | 进入全局配置模式                                   |
-| vlan database       | 配置VLAN配置模式                                   |
-| interface f0\1      | 进入f0\1的接口配置模式                             |
-| interface vlan 1    | 进入vlan的接口配置模式                             |
-| show vlan           | 输出vlan列表                                       |
-| show running-config | 查看当前的运行配置文件，可以查看password设置的密码 |
+| 命令                               | 说明                                               |
+| ---------------------------------- | -------------------------------------------------- |
+| configure terminal                 | 进入全局配置模式                                   |
+| vlan database                      | 配置VLAN配置模式                                   |
+| interface f0\1                     | 进入f0\1的接口配置模式                             |
+| interface vlan 1                   | 进入vlan的接口配置模式                             |
+| show vlan                          | 输出vlan列表                                       |
+| show running-config                | 查看当前的运行配置文件，可以查看password设置的密码 |
+| show startup-config                | 显示启动配置文件                                   |
+| copy running-config startup-config | 复制运行配置到启动配置                             |
+| write memory                       | 运行配置写到启动配置                               |
+| show history                       | 输出历史使用命令                                   |
 
 ### 接口模式  <font color=gray size=5>Switch(config-if)#</font>
 
@@ -172,6 +176,8 @@ C -->|line console 0| F(终端线路模式)
 | hostname                       | 更改名称                               |
 | no hostname                    | 恢复默认名称                           |
 | line console [ID]              | 终端线路模式                           |
+| ip name-server x.x.x.x         | 设置DNS服务器的IP                      |
+| ip host chuangye x.x.x.x       | 设置域名与IP关联                       |
 
 ### VLAN配置模式 <font color=gray size=5>Switch(vlan)#</font>
 
@@ -182,3 +188,158 @@ C -->|line console 0| F(终端线路模式)
 
 ### 终端线路模式 <font color=gray size=5>Switch(config-line)#</font>
 
+## 配置交换机的telnet登录模式
+
+### 配置交换机
+
+1. 把配置交换机和交换机使用配置线连接起来
+2. 为交换机配置管理IP地址
+3. 配置交换机的telnet登录方式
+4. 配置交换机的特权密码 enable password
+5. 登录的计算机要和交换机在同一网段，且网关地址设置为交换机的IP管理地址
+
+### 配置计算机
+
+1. 设置IP地址为192.168.1.2
+2. telnet 192.168.1.1
+
+```shell
+Switch>enable
+Switch#conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Switch(config)#int vlan 1
+Switch(config-if)#ip address 192.168.1.1 255.255.255.0
+Switch(config-if)#no shutdown
+
+Switch(config-if)#
+%LINK-5-CHANGED: Interface Vlan1, changed state to up
+
+%LINEPROTO-5-UPDOWN: Line protocol on Interface Vlan1, changed state to up
+
+Switch(config-if)#exit
+Switch(config)#line vty 0 4
+Switch(config-line)#password  123456
+Switch(config-line)#login
+Switch(config-line)#end
+Switch#
+%SYS-5-CONFIG_I: Configured from console by console
+
+Switch#config t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Switch(config)#enable password 888888
+Switch(config)#end
+Switch#
+```
+
+## 链路聚合
+
+channel-group 1 mode ?
+
+参数说明:
+
+| 值        | 说明                                                         |
+| --------- | ------------------------------------------------------------ |
+| active    | Enable LACP unconditionally  主动发送LACP报文                |
+| auto      | Enable PAgP only if a PAgP device is detected   被动发送PAgP报文 |
+| desirable | Enable PAgP unconditionally  主动发送PAgP报文                |
+| on        | Enable Etherchannel only   手动设置，需要两边都设置成on      |
+| passive   | passive  Enable LACP only if a LACP device is detected  被动接收LACP报文 |
+
+![说明](image-20220323105917707.png)
+
+* active: 主动发送LACP报
+* auto: 被动，只会接收协商消息
+* desirable: 主动，会发送也会接收协商消息
+* on: 强行起etherchannel，手动设置，需要两边都设置成on
+* passive: 同auto
+
+
+
+port-channel load-balance [param]
+
+* src-dst-mac
+
+* src-dst-ip
+
+* src-mac
+
+* src-ip
+
+* dst-mac
+
+* dst-ip
+
+结构说明：
+
+* src: 源
+* dst: 目标
+* ip: 根据IP
+* mac:  根据MAC
+
+### 端口聚合操作过程
+
+Switch0:
+
+```shell
+Switch>enable
+Switch#conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Switch(config)#port-channel load-balance src-dst-mac
+Switch(config)#int range f0/1-3
+Switch(config-if-range)#channel-protocol lacp
+Switch(config-if-range)#channel-group 1 mode active
+Switch(config-if-range)#
+Creating a port-channel interface Port-channel 1
+
+%LINEPROTO-5-UPDOWN: Line protocol on Interface FastEthernet0/1, changed state to down
+
+%LINEPROTO-5-UPDOWN: Line protocol on Interface FastEthernet0/1, changed state to up
+
+%LINEPROTO-5-UPDOWN: Line protocol on Interface FastEthernet0/2, changed state to down
+
+%LINEPROTO-5-UPDOWN: Line protocol on Interface FastEthernet0/2, changed state to up
+
+%LINEPROTO-5-UPDOWN: Line protocol on Interface FastEthernet0/3, changed state to down
+
+%LINEPROTO-5-UPDOWN: Line protocol on Interface FastEthernet0/3, changed state to up
+
+Switch(config-if-range)#
+```
+
+Swith1:
+
+```shell
+Switch>en
+Switch#conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Switch(config)#port-channel load-balance src-dst-mac
+Switch(config)#int range f0/1-3
+Switch(config-if-range)#channel-protocol lacp
+Switch(config-if-range)#channel-group 1 mode active
+Switch(config-if-range)#
+Creating a port-channel interface Port-channel 1
+
+%LINEPROTO-5-UPDOWN: Line protocol on Interface FastEthernet0/1, changed state to down
+
+%LINEPROTO-5-UPDOWN: Line protocol on Interface FastEthernet0/1, changed state to up
+
+%LINEPROTO-5-UPDOWN: Line protocol on Interface FastEthernet0/2, changed state to down
+
+%LINEPROTO-5-UPDOWN: Line protocol on Interface FastEthernet0/2, changed state to up
+
+%LINEPROTO-5-UPDOWN: Line protocol on Interface FastEthernet0/3, changed state to down
+
+%LINEPROTO-5-UPDOWN: Line protocol on Interface FastEthernet0/3, changed state to up
+
+%LINK-5-CHANGED: Interface Port-channel 1, changed state to up
+
+%LINEPROTO-5-UPDOWN: Line protocol on Interface Port-channel 1, changed state to up
+
+Switch(config-if-range)#
+```
+
+
+
+参考资料:
+
+[Cisco交换机端口聚合(EtherChannel)](https://www.cnblogs.com/zoulongbin/p/6654545.html)
