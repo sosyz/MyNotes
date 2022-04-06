@@ -126,7 +126,7 @@ VLAN模式: Switch(vlan)#
 graph LR
 A(用户模式) -->|enablue| B(特权模式) -->|conf t| C(全局配置模式)
 B -->|vlan database| D(VLAN配置模式)
-B -->|interface f0\1| E(接口配置模式)
+C -->|interface f0\1| E(接口配置模式)
 C -->|line console 0| F(终端线路模式)
 
 ```
@@ -145,10 +145,9 @@ C -->|line console 0| F(终端线路模式)
 | ---------------------------------- | -------------------------------------------------- |
 | configure terminal                 | 进入全局配置模式                                   |
 | vlan database                      | 配置VLAN配置模式                                   |
-| interface f0\1                     | 进入f0\1的接口配置模式                             |
-| interface vlan 1                   | 进入vlan的接口配置模式                             |
 | show vlan                          | 输出vlan列表                                       |
 | show running-config                | 查看当前的运行配置文件，可以查看password设置的密码 |
+| show interface                     | 显示接口信息                                       |
 | show startup-config                | 显示启动配置文件                                   |
 | copy running-config startup-config | 复制运行配置到启动配置                             |
 | write memory                       | 运行配置写到启动配置                               |
@@ -163,6 +162,7 @@ C -->|line console 0| F(终端线路模式)
 | no shutdown                          | 启用接口                 |
 | duplex [full/half/auto]              | 设为全双工/半双工/自动   |
 | speed [10/100]                       | 设置速度为10M/100M       |
+| description [content]                | 设置接口描述             |
 
 ### 全局配置模式 <font color=gray size=5>Switch(config)#</font>
 
@@ -178,6 +178,8 @@ C -->|line console 0| F(终端线路模式)
 | line console [ID]              | 终端线路模式                           |
 | ip name-server x.x.x.x         | 设置DNS服务器的IP                      |
 | ip host chuangye x.x.x.x       | 设置域名与IP关联                       |
+| interface f0\1                 | 进入f0\1的接口配置模式                 |
+| interface vlan 1               | 进入vlan的接口配置模式                 |
 
 ### VLAN配置模式 <font color=gray size=5>Switch(vlan)#</font>
 
@@ -286,7 +288,7 @@ Switch#conf t
 Enter configuration commands, one per line.  End with CNTL/Z.
 Switch(config)#port-channel load-balance src-dst-mac
 Switch(config)#int range f0/1-3
-Switch(config-if-range)#channel-protocol lacp
+Switch(config-if-range)#channel-protocol lacp (思科专有协议，pagp)
 Switch(config-if-range)#channel-group 1 mode active
 Switch(config-if-range)#
 Creating a port-channel interface Port-channel 1
@@ -343,3 +345,116 @@ Switch(config-if-range)#
 参考资料:
 
 [Cisco交换机端口聚合(EtherChannel)](https://www.cnblogs.com/zoulongbin/p/6654545.html)
+
+
+
+### 端口通道
+
+channel-protocol lacp pagp
+
+show etherchannel summary  列出聚合端口协议
+
+show etherchannel port-channel 列举某些聚合端口
+
+
+
+### 端口安全 port security config-if
+
+switchport mode access 接口改为接入模式
+
+switchport port-security 打开该端口的端口安全功能
+
+switchport port-security maximum n 设置端口安全地址的最大个数  1-128
+
+switchport port-security mac-address x.x.x.x [ip-address y.y.y.y] 安全地址绑定
+
+
+
+switchport port-security violation ?
+
+安全违例处理方式
+
+protect 当安全地址个数满后 安全端口将丢弃未知地址的帧（默认）
+
+restrict 违反端口安全时，发送Trap通知
+
+shutdown 当违反时关闭对应端口并发送一个Trap通知
+
+聚合端口不能设置安全违例
+
+
+
+## 老化时间
+
+Switch(config-if)# switchport port-security aging static time [] 单位分钟 默认0
+
+show port-security int f0/1
+
+```
+Switch(config-if)#switchport port-security
+Command rejected: FastEthernet0/1 is a dynamic port.
+Switch(config-if)#switchport mode access
+Switch(config-if)#switchport port-security
+Switch(config-if)#switchport port-security maximum 1
+Switch(config-if)#switchport port-security mac-address 0090.0C86.0127
+Switch(config-if)#no shutdown
+Switch(config-if)#
+Switch(config-if)#int vlan 1
+Switch(config-if)#ip address 192.168.1.1 255.255.255.0
+Switch(config-if)#ex
+Switch(config)#ex
+Switch#
+%SYS-5-CONFIG_I: Configured from console by console
+
+Switch#show port-security int f0/1
+Port Security              : Enabled
+Port Status                : Secure-up
+Violation Mode             : Shutdown
+Aging Time                 : 0 mins
+Aging Type                 : Absolute
+SecureStatic Address Aging : Disabled
+Maximum MAC Addresses      : 1
+Total MAC Addresses        : 1
+Configured MAC Addresses   : 1
+Sticky MAC Addresses       : 0
+Last Source Address:Vlan   : 0000.0000.0000:0
+Security Violation Count   : 0
+```
+
+## 跨交换机的内部访问
+
+
+
+## 聚合端口
+
+
+
+## VTP域
+
+Switch出于三种VTP模式之一
+
+| 模式        | 说明       |
+| ----------- | ---------- |
+| server      | 服务器模式 |
+| client      | 客户模式   |
+| transparent | 透明模式   |
+
+VTP设置
+
+| 命令                                 | 说明                |
+| ------------------------------------ | ------------------- |
+| vtp domain XXX                       | 设置自己所处的VTP域 |
+| vtp mode server\|client\|transparent | 全局模式下用        |
+| vtp server\|client\|transparent      | vlan模式下用        |
+| show vtp status                      | 输出vtp状态         |
+
+\*VTP传输的数据必须在Trunk端口或链路上走
+
+```mermaid
+sequenceDiagram	
+	交换机A（Server） ->> 交换机B（Client）: 服务器影响客户端
+	交换机D（Transparent）->> 交换机D（Transparent）: 透明，对其它交换机隐身
+	交换机C（Server） ->> 交换机B（Client）: 服务器影响客户端
+	交换机A（Server） -> 交换机C（Server）: 服务器影响服务器
+	
+```
