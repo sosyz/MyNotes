@@ -356,8 +356,6 @@ show etherchannel summary  列出聚合端口协议
 
 show etherchannel port-channel 列举某些聚合端口
 
-
-
 ### 端口安全 port security config-if
 
 switchport mode access 接口改为接入模式
@@ -423,21 +421,31 @@ Security Violation Count   : 0
 
 ## 跨交换机的内部访问
 
+```shell
+Switch>en
+Switch#conf t
+Switch(config)#int f0/1
+Switch(config-if)#switchport mode access
+Switch(config-if)#switchport access vlan 100
+```
 
+使用上述命令过程将链路绑定到VLAN后，两台同VLAN域的机器可互相通信
 
 ## 聚合端口
 
+vtp mode trunk
 
+可以设置一条链路绑定多个vlan
 
 ## VTP域
 
 Switch出于三种VTP模式之一
 
-| 模式        | 说明       |
-| ----------- | ---------- |
-| server      | 服务器模式 |
-| client      | 客户模式   |
-| transparent | 透明模式   |
+| 模式        | 说明                                                         |
+| ----------- | ------------------------------------------------------------ |
+| server      | 服务器模式                                                   |
+| client      | 客户模式                                                     |
+| transparent | 透明模式，会接收别人的VTP数据但不会更新自己，也不会向外发送VTP数据 |
 
 VTP设置
 
@@ -458,3 +466,128 @@ sequenceDiagram
 	交换机A（Server） -> 交换机C（Server）: 服务器影响服务器
 	
 ```
+
+## VLAN帧的放行策略
+
+帧区别
+
+| ISL          | IEEE802.1Q           |
+| ------------ | -------------------- |
+| CISO私有协议 | 工业通用标准         |
+| 头尾加数据   | 插入数据，不破坏原帧 |
+
+命令
+
+| 命令                                   | 说明                    |
+| -------------------------------------- | ----------------------- |
+| switchport trunk allowed vlan remove X | 禁止编号X的vlan通过     |
+| switchport trunk allowed vlan add X    | 运行编号X的vlan通过     |
+| switchport trunk allowed vlan all      | 允许所有vlan通过        |
+| switchport trunk allowed vlan except X | 除了X其他的vlan允许通过 |
+| show interface trunk                   | 输出端口信息            |
+
+交换机1：
+
+```shell
+Switch>en
+Switch#conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Switch(config)#vtp mode server
+Device mode already VTP SERVER.
+Switch(config)#int f0/10
+Switch(config-if)#switchport mode trunk
+
+Switch(config-if)#
+%LINEPROTO-5-UPDOWN: Line protocol on Interface FastEthernet0/10, changed state to down
+
+%LINEPROTO-5-UPDOWN: Line protocol on Interface FastEthernet0/10, changed state to up
+
+Switch(config-if)#ex
+Switch(config)#vtp domain Chuangye
+Domain name already set to Chuangye.
+Switch(config)#ex
+Switch#
+%SYS-5-CONFIG_I: Configured from console by console
+
+Switch#vlan database
+% Warning: It is recommended to configure VLAN from config mode,
+  as VLAN database mode is being deprecated. Please consult user
+  documentation for configuring VTP/VLAN in config mode.
+	
+Switch(vlan)#vlan 10
+VLAN 10 added:
+    Name: VLAN0010
+Switch(vlan)#vlan 15
+VLAN 15 added:
+    Name: VLAN0015
+Switch(vlan)#vlan 20
+VLAN 20 added:
+    Name: VLAN0020
+Switch(vlan)#vlan 25
+VLAN 25 added:
+    Name: VLAN0025
+Switch(vlan)#ex
+APPLY completed.
+Exiting....
+Switch#conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Switch(config)#int f0/1
+Switch(config-if)#switchport mode access
+Switch(config-if)#switchport access vlan 10
+Switch(config-if)#int f0/2
+Switch(config-if)#switchport mode access
+Switch(config-if)#switchport access vlan 15
+Switch(config-if)#int f0/3
+Switch(config-if)#switchport mode access
+Switch(config-if)#switchport access vlan 20
+Switch(config-if)#int f0/4
+Switch(config-if)#switchport mode access
+Switch(config-if)#switchport access vlan 25
+Switch(config-if)#ex
+Switch(config)#ex
+Switch#conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Switch(config)#int f0/10
+Switch(config-if)#switchport trunk allowed vlan remove 10
+Switch(config-if)#switchport trunk allowed vlan add 10
+```
+
+交换机2：
+
+```shell
+
+Switch>
+Switch>ebn
+Translating "ebn"...domain server (255.255.255.255)
+% Unknown command or computer name, or unable to find computer address
+
+Switch>
+Switch>en
+Switch#conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Switch(config)#int f0/10
+Switch(config-if)#switchport mode trunk
+Switch(config-if)#ex
+Switch(config)#vtp domain Chuangye
+Changing VTP domain name from NULL to Chuangye
+Switch(config)#vtp mode server
+Device mode already VTP SERVER.
+Switch(config)#vtp mode client
+Setting device to VTP CLIENT mode.
+Switch(config)#int f0/1
+Switch(config-if)#switchport mode access
+Switch(config-if)#switchport access vlan 10
+Switch(config-if)#int f0/2
+Switch(config-if)#switchport mode access
+Switch(config-if)#switchport access vlan 15
+Switch(config-if)#int f0/3
+Switch(config-if)#switchport mode access
+Switch(config-if)#switchport access vlan 20
+Switch(config-if)#int f0/4
+Switch(config-if)#switchport mode access
+Switch(config-if)#switchport access vlan 25
+```
+
+
+
+不同VLAN之间的互访，需要通过交换机的三层交换功能
